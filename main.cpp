@@ -143,32 +143,17 @@ class Tree{
             return findByName(node->right, fname);
         }
         
-        void deleteSubtree(participant* node) {//helper functions for 5th method
-            if (node == nullptr) return;
-        
-            //recursive delete
-            deleteSubtree(node->left);
-            deleteSubtree(node->right);
-        
-            
-            deleteByPointer(node);
-        }
-        void deleteByPointer(participant* node) {
+        void collectByTimestamp(participant* node, int targetTimestamp, vector<participant*>& matches) {
             if (!node) return;
         
-            // Ενημέρωσε τον γονέα του node ώστε να μην το δείχνει πλέον
-            if (node->parent) {
-                if (node->parent->left == node) {
-                    node->parent->left = nullptr;
-                } else if (node->parent->right == node) {
-                    node->parent->right = nullptr;
-                }
-            } else {
-                // Αν είναι η ρίζα
-                root = nullptr;
-            }
+            collectByTimestamp(node->left, targetTimestamp, matches);
         
-            delete node;
+            if (node->timestamp == targetTimestamp)
+                matches.push_back(node);
+        
+            //only search right subtree if timestamps can match
+            if (node->timestamp <= targetTimestamp)
+                collectByTimestamp(node->right, targetTimestamp, matches);
         }
         
 
@@ -254,7 +239,46 @@ class Tree{
         
             delete target;
         }
+        void deletePlayer(participant* node) {//overloaded 2nd method for 5th method
+            if (!node) return;
         
+            // Push the node down until it becomes a leaf
+            while (node->left || node->right) {
+                participant* swapChild = nullptr;
+        
+                if (node->left && node->right) {
+                    swapChild = (node->left->ranking > node->right->ranking) ? node->left : node->right;
+                } else if (node->left) {
+                    swapChild = node->left;
+                } else {
+                    swapChild = node->right;
+                }
+        
+                // Swap only heap-relevant fields
+                swap(node->ranking, swapChild->ranking);
+                swap(node->ID, swapChild->ID);
+                swap(node->origin, swapChild->origin);
+                swap(node->timestamp, swapChild->timestamp);
+        
+                node = swapChild;
+            }
+        
+            // Remove leaf
+            if (node->parent) {
+                if (node->parent->left == node) {
+                    node->parent->left = nullptr;
+                } else {
+                    node->parent->right = nullptr;
+                }
+            } else {
+                root = nullptr;
+            }
+        
+            delete node;
+        }
+        
+
+
         void findKthBestPlayer(int k) {//3rd method
             if (k <= 0 || root == nullptr) {
                 cout << "Invalid input or empty tree." << endl;
@@ -309,10 +333,10 @@ class Tree{
 
             // Print current node's details (in this case, just the fullname, ID, ranking, and timestamp)
             cout << "Full name: " << node->fullname<<endl
-                << ", ID: " << node->ID << endl
-                << ", Ranking: " << node->ranking <<endl
-                << ", Origin: " << node->origin << endl
-                << ", Timestamp: " << node->timestamp << endl
+                << " ID: " << node->ID << endl
+                << " Ranking: " << node->ranking <<endl
+                << " Origin: " << node->origin << endl
+                << " Timestamp: " << node->timestamp << endl
                 <<"------------------------------------------------"<<endl;
 
             // Traverse right subtree
@@ -327,30 +351,30 @@ class Tree{
             printInOrder(root);  // Start printing from the root
         }
         
-        void deleteAllAfterTimestamp(int targetTimestamp) {//5th method
-            // Βρίσκουμε τον πρώτο κόμβο με timestamp >= targetTimestamp
-            participant* current = root;
-            
-            // Μετακινούμαστε στο κατάλληλο υποδέντρο ανάλογα με το timestamp
-            while (current != nullptr) {
-                if (current->timestamp >= targetTimestamp) {
-                    break;
-                }
-                if (current->timestamp < targetTimestamp) {
-                    current = current->right; // Μετακίνηση δεξιά αν το timestamp είναι μεγαλύτερο
+        void deleteAllWithTimestamp(int targetTimestamp) {//5th method
+            vector<participant*> toDelete;
+            collectByTimestamp(root, targetTimestamp, toDelete);
+        
+            // Go through each participant to delete them properly
+            for (participant* p : toDelete) {
+                // Handle the removal of the node from the tree structure manually
+                if (p->parent) {
+                    if (p->parent->left == p) {
+                        p->parent->left = nullptr;
+                    } else if (p->parent->right == p) {
+                        p->parent->right = nullptr;
+                    }
                 } else {
-                    current = current->left; // Μετακίνηση αριστερά αν το timestamp είναι μικρότερο
+                    // If the node is the root, we need to handle the root separately
+                    root = nullptr;
                 }
+                delete p;
             }
         
-            if (current == nullptr) {
-                cout << "No participants found with the specified timestamp or greater." << endl;
-                return;
-            }
-        
-            // Ξεκινάμε τη διαγραφή όλων των κόμβων με timestamp >= targetTimestamp
-            deleteSubtree(current);
+            cout << "Deleted " << toDelete.size() << " participants with timestamp " << targetTimestamp << "." << endl;
         }
+        
+        
         
         void bestBeforeTimestamp(int targetTimestamp) {//6th method
             participant* best = nullptr;
@@ -495,7 +519,7 @@ void actions(int answ,Tree& tree1){
             tree1.printIDsInTimeRange(k,l);
             break;
         case 5:
-            cout << "Option 5 selected: Delete all users after a specific date." << endl;
+            cout << "Option 5 selected: Delete all users with a specific date." << endl;
             cout << "Give timestamp: ";
             cin >> l;
             while (cin.fail()){
@@ -506,7 +530,7 @@ void actions(int answ,Tree& tree1){
             }
             cout<<'\n';
 
-            tree1.deleteAllAfterTimestamp(l);
+            tree1.deleteAllWithTimestamp(l);
 
             break;
         case 6:
