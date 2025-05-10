@@ -146,15 +146,17 @@ class Tree{
         void collectByTimestamp(participant* node, int targetTimestamp, vector<participant*>& matches) {
             if (!node) return;
         
+            // Check left subtree 
             collectByTimestamp(node->left, targetTimestamp, matches);
         
+            // Check current node
             if (node->timestamp == targetTimestamp)
                 matches.push_back(node);
         
-            //only search right subtree if timestamps can match
-            if (node->timestamp <= targetTimestamp)
-                collectByTimestamp(node->right, targetTimestamp, matches);
+            // Check right subtree 
+            collectByTimestamp(node->right, targetTimestamp, matches);
         }
+        
         
 
         void findBestBefore(participant* node, int targetTimestamp, participant*& best) {//helper function for 6th method
@@ -239,46 +241,47 @@ class Tree{
         
             delete target;
         }
-        void deletePlayer(participant* node) {//overloaded 2nd method for 5th method
+        void deletePlayer(participant* node) {
             if (!node) return;
         
-            // Push the node down until it becomes a leaf
+            // Push the node down the heap until it becomes a leaf
             while (node->left || node->right) {
                 participant* swapChild = nullptr;
         
+                // Choose the child with the smaller ranking (min-heap)
                 if (node->left && node->right) {
-                    swapChild = (node->left->ranking > node->right->ranking) ? node->left : node->right;
+                    swapChild = (node->left->ranking < node->right->ranking) ? node->left : node->right;
                 } else if (node->left) {
                     swapChild = node->left;
                 } else {
                     swapChild = node->right;
                 }
         
-                // Swap only heap-relevant fields
-                swap(node->ranking, swapChild->ranking);
+                // Swap all relevant fields (we bubble values up, not pointers)
+                swap(node->fullname, swapChild->fullname);
                 swap(node->ID, swapChild->ID);
+                swap(node->ranking, swapChild->ranking);
                 swap(node->origin, swapChild->origin);
                 swap(node->timestamp, swapChild->timestamp);
         
                 node = swapChild;
             }
         
-            // Remove leaf
+            // Now node is a leaf → remove it from its parent
             if (node->parent) {
                 if (node->parent->left == node) {
                     node->parent->left = nullptr;
-                } else {
+                } else if (node->parent->right == node) {
                     node->parent->right = nullptr;
                 }
             } else {
+                // Node is the root and only node
                 root = nullptr;
             }
         
             delete node;
         }
         
-
-
         void findKthBestPlayer(int k) {//3rd method
             if (k <= 0 || root == nullptr) {
                 cout << "Invalid input or empty tree." << endl;
@@ -351,28 +354,23 @@ class Tree{
             printInOrder(root);  // Start printing from the root
         }
         
-        void deleteAllWithTimestamp(int targetTimestamp) {//5th method
+        void deleteAllWithTimestamp(int targetTimestamp) {
             vector<participant*> toDelete;
             collectByTimestamp(root, targetTimestamp, toDelete);
         
-            // Go through each participant to delete them properly
-            for (participant* p : toDelete) {
-                // Handle the removal of the node from the tree structure manually
-                if (p->parent) {
-                    if (p->parent->left == p) {
-                        p->parent->left = nullptr;
-                    } else if (p->parent->right == p) {
-                        p->parent->right = nullptr;
-                    }
-                } else {
-                    // If the node is the root, we need to handle the root separately
-                    root = nullptr;
-                }
-                delete p;
+            if (toDelete.empty()) {
+                cout << "No participants found with timestamp " << targetTimestamp << "." << endl;
+                return;
             }
         
-            cout << "Deleted " << toDelete.size() << " participants with timestamp " << targetTimestamp << "." << endl;
+            // Use the safe heap-aware deletion function
+            for (participant* p : toDelete) {
+                deletePlayer(p);
+            }
+        
+            cout << "Deleted " << toDelete.size() << " participant(s) with timestamp " << targetTimestamp << "." << endl;
         }
+        
         
         
         
@@ -458,7 +456,7 @@ int menu(){
                      "2. Delete a player\n"
                      "3. Show the k-th best-ranked participant\n"
                      "4. Show IDs of players within a certain time frame\n"
-                     "5. Delete all users after a specific date\n"
+                     "5. Delete all users with a specific date\n"
                      "6. Show ID of the best-ranked player before a specific date\n"
                      "7. Exit\n"
                      "(8. Show all players by traversal(helper function))\n"
